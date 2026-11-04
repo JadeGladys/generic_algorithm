@@ -4,6 +4,7 @@ import random
 # SETTINGS BLOCK
 CSV_FILE = "GA_task.csv"
 CSV_SEPARATOR = ","
+POPULATION_SIZE = 50    # how many lists we have at a time
 
 
 # =====================================================================
@@ -46,18 +47,54 @@ def load_jobs(file_name):
 
     return jobs
 
+
+# =====================================================================
+# create random lists
+# =====================================================================
+
+def random_list(jobs):
+    """Return one random list: each job number once per step, shuffled."""
+    one_list = []
+
+    # create one list that is in order listing all jobs 11 times
+    for job_number, job_steps in enumerate(jobs):
+        number_of_steps = len(job_steps)
+        for step in range(number_of_steps):
+            one_list.append(job_number)
+
+    # mix the list into a random order
+    random.shuffle(one_list)
+    return one_list
+
+
+def whole_population(population_size, jobs):
+    """create multiple random list by calling the helper function that creates one random list"""
+    population = []
+
+    for _ in range(population_size):
+        population.append(random_list(jobs))
+
+    return population
+
+
 # ---- temporary test ----
-
-
 def main():
     """Temporary test of the parts written so far."""
     jobs = load_jobs(CSV_FILE)
+    population = whole_population(POPULATION_SIZE, jobs)
 
     print("number of jobs:", len(jobs))
     print("steps per job:", len(jobs[0]))
     # print(jobs)
-    for i in range(len(jobs)):
-        print("job", i + 1, ":", jobs[i])
+    # for i in range(len(jobs)):
+    #     print("job", i + 1, ":", jobs[i])
+
+    print("number of lists:", len(population))
+    print("length of one list:", len(population[0]))
+    print("first 15 numbers of list 1:", population[0][:15])
+    # print("list 2:", population[1])
+    # for i in range(len(population)):
+    #     print(population[i])
 
 
 if __name__ == "__main__":
