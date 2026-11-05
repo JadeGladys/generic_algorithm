@@ -7,6 +7,8 @@ CSV_SEPARATOR = ","
 POPULATION_SIZE = 50    # how many lists we have at a time
 SEED = 42
 TOURNAMENT_SIZE = 2
+# how often two parents are actually mixed (0.8 = 80% of the time)
+CROSSOVER_CHANCE = 0.8
 
 
 # =====================================================================
@@ -59,10 +61,10 @@ def random_list(jobs, rdm):
     one_list = []
 
     # create one list that is in order listing all jobs 11 times
-    for job_number, job_steps in enumerate(jobs):
+    for job_position, job_steps in enumerate(jobs):
         number_of_steps = len(job_steps)
         for step in range(number_of_steps):
-            one_list.append(job_number)
+            one_list.append(job_position)
 
     # mix the list into a random order
     rdm.shuffle(one_list)
@@ -80,7 +82,8 @@ def whole_population(population_size, jobs, rdm):
 
 
 # =====================================================================
-# PART 3 - score one list
+# PART 3 - score the population
+# each member of the population is a pair: (score, list)
 # =====================================================================
 
 def calculate_score(one_list, jobs):
@@ -106,12 +109,8 @@ def calculate_score(one_list, jobs):
     return max(job_ready_at)
 
 
-# =====================================================================
-# PART 4 - Tournament
-# each member of the population is a pair: (score, list)
-# =====================================================================
-
 def score_population(population, jobs):
+    """Return the population as (score, list) pairs."""
     scored_population = []
     for one_list in population:
         score = calculate_score(one_list, jobs)
@@ -120,7 +119,12 @@ def score_population(population, jobs):
     return scored_population
 
 
+# =====================================================================
+# PART 4 - Tournament
+# =====================================================================
+
 def tournament(scored_population, rdm):
+    """Pick TOURNAMENT_SIZE random members and return the list with the lowest score."""
     contestants = rdm.sample(scored_population, TOURNAMENT_SIZE)
 
     # start qith no winner yet and the score being infinity
@@ -134,7 +138,79 @@ def tournament(scored_population, rdm):
 
     return best_list
 
+
+def create_parents(scored_population, rdm):
+    """Run one tournament per member of the population and return all the winners."""
+    parents = []
+    for _ in range(len(scored_population)):
+        parents.append(tournament(scored_population, rdm))
+
+    return parents
+
+
+# =====================================================================
+# PART 5  - crossover + repair
+# =====================================================================
+
+def repair(child, jobs):
+    """Replace extra copies of a job with the jobs that are missing."""
+    # 1. read left to right: any job seen more times than it has steps is an extra
+    seen = [0] * len(jobs)
+    extra_position = []
+
+    for position, job_number in enumerate(child):
+        seen[job_number] += 1
+        if seen[job_number] > len(jobs[job_number]):
+            extra_position.append(position)
+
+    # 2. list the jobs that appear too few times (once for each missing copy)
+    missing_jobs = []
+    for job_position, job_steps in enumerate(jobs):
+        how_many_missing = len(job_steps) - seen[job_position]
+        for _ in range(how_many_missing):
+            missing_jobs.append(job_position)
+
+    # 3. put a missing job into each extra position
+    for position, job_number in zip(extra_position, missing_jobs):
+        child[position] = job_number
+
+
+def crossover(parent_1, parent_2, jobs, rdm):
+    """Return 2 children: mixed (cut and swap, then repaired) or copies of the parents."""
+    if rdm.random() < CROSSOVER_CHANCE:
+        # cut both parents at the same random spot and swap the ends
+        cut = rdm.randint(1, len(parent_1) - 1)
+        child_1 = parent_1[:cut] + parent_2[cut:]
+        child_2 = parent_2[:cut] + parent_1[cut:]
+
+        repair(child_1, jobs)
+        repair(child_2, jobs)
+        return child_1, child_2
+
+    # no crossover this time: children are copies of the parents
+    return list(parent_1), list(parent_2)
+
+
+def make_children(parents, jobs, rdm):
+    """Pair the parents up (1st with 2nd, 3rd with 4th, ...) and return all their children."""
+    children = []
+    for pair_start in range(0, len(parents), 2):
+        parent_1 = parents[pair_start]
+        parent_2 = parents[pair_start + 1]
+        child_1, child_2 = crossover(parent_1, parent_2, jobs, rdm)
+        children.append(child_1)
+        children.append(child_2)
+
+    return children
+
+
 # ---- temporary test ----
+def is_valid(one_list, jobs):
+    """Check that every job appears exactly once per step."""
+    for job_position, job_steps in enumerate(jobs):
+        if one_list.count(job_position) != len(job_steps):
+            return False
+    return True
 
 
 def main():
@@ -146,28 +222,13 @@ def main():
     # for step 1
     print("number of jobs:", len(jobs))
     print("steps per job:", len(jobs[0]))
-    # print(jobs)
-    # for i in range(len(jobs)):
-    #     print("job", i + 1, ":", jobs[i])
 
     # for step 2
     print("number of lists:", len(population))
     print("length of one list:", len(population[0]))
     print("first 15 numbers of list 1:", population[0][:15])
-    # print("list 2:", population[1])
-    # for i in range(len(population)):
-    #     print(population[i])
 
     # for step 3
-    # the 3-job example: first 3 jobs and first 3 steps from the CSV
-    small_jobs = [
-        [(9, 22), (3, 49), (1, 47)],
-        [(5, 17), (10, 13), (7, 23)],
-        [(5, 24), (4, 28), (1, 18)],
-    ]
-    print("list [2, 0, 1, 2, 0, 1, 0, 2, 1]:", calculate_score(
-        [2, 0, 1, 2, 0, 1, 0, 2, 1], small_jobs), "(should be 136)")
-
     # the real data: one random list
     print("random list from real data time take for that list:",
           calculate_score(population[0], jobs))
@@ -175,13 +236,38 @@ def main():
     # for step 4
     # real data: are winners better than average?
     scored_population = score_population(population, jobs)
+    one_list, score = scored_population[0]
+    print("irst 15 numbers and score of scored population:",
+          one_list[:15], "score", score)
     total = 0
     for _, score in scored_population:
         total += score
     print("average score of population:", total / len(scored_population))
-    for _ in range(50):
+    for _ in range(5):
         winner = tournament(scored_population, rdm)
-        print("  winner score:", calculate_score(winner, jobs))
+        print("sample winner score:", calculate_score(winner, jobs))
+
+    # for step 5: real parents from 50 tournaments -> 50 children
+    parents = create_parents(scored_population, rdm)
+    children = make_children(parents, jobs, rdm)
+    print("parents:", len(parents), " children:", len(children))
+
+    # are all children valid (every job exactly 11 times)?
+    valid_count = 0
+    for child in children:
+        if is_valid(child, jobs):
+            valid_count += 1
+    print("valid children:", valid_count, "out of", len(children))
+
+    # compare average scores
+    parents_total = 0
+    for parent in parents:
+        parents_total += calculate_score(parent, jobs)
+    children_total = 0
+    for child in children:
+        children_total += calculate_score(child, jobs)
+    print("average parent score:", parents_total / len(parents))
+    print("average child score:", children_total / len(children))
 
 
 if __name__ == "__main__":
