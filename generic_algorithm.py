@@ -6,6 +6,7 @@ CSV_FILE = "GA_task.csv"
 CSV_SEPARATOR = ","
 POPULATION_SIZE = 50    # how many lists we have at a time
 SEED = 42
+TOURNAMENT_SIZE = 2
 
 
 # =====================================================================
@@ -50,7 +51,7 @@ def load_jobs(file_name):
 
 
 # =====================================================================
-# create random lists
+# PART 2 - create random lists
 # =====================================================================
 
 def random_list(jobs, rdm):
@@ -79,14 +80,14 @@ def whole_population(population_size, jobs, rdm):
 
 
 # =====================================================================
-# score a lists
+# PART 3 - score one list
 # =====================================================================
 
 def calculate_score(one_list, jobs):
     """Build the schedule from one list and return when the last step finishes."""
-    job_ready_at = [0] * len(jobs)  # when each job can start its next step
-    next_step = [0] * len(jobs)     # which step is each job on
-    machine_free_time = {}          # when each machine is free
+    job_ready_at = [0] * len(jobs)      # when each job can start its next step
+    next_step = [0] * len(jobs)         # which step is each job on
+    machine_free_time = {}              # when each machine is free
 
     for job_number in one_list:
         # check what step the job is on and retrive that step's machine and time
@@ -105,7 +106,37 @@ def calculate_score(one_list, jobs):
     return max(job_ready_at)
 
 
+# =====================================================================
+# PART 4 - Tournament
+# each member of the population is a pair: (score, list)
+# =====================================================================
+
+def score_population(population, jobs):
+    scored_population = []
+    for one_list in population:
+        score = calculate_score(one_list, jobs)
+        scored_population.append((one_list, score))
+
+    return scored_population
+
+
+def tournament(scored_population, rdm):
+    contestants = rdm.sample(scored_population, TOURNAMENT_SIZE)
+
+    # start qith no winner yet and the score being infinity
+    best_list = None
+    best_score = float("inf")
+
+    for one_list, score in contestants:
+        if score < best_score:
+            best_list = one_list
+            best_score = score
+
+    return best_list
+
 # ---- temporary test ----
+
+
 def main():
     """Temporary test of the parts written so far."""
     rdm = random.Random(SEED)
@@ -140,6 +171,17 @@ def main():
     # the real data: one random list
     print("random list from real data time take for that list:",
           calculate_score(population[0], jobs))
+
+    # for step 4
+    # real data: are winners better than average?
+    scored_population = score_population(population, jobs)
+    total = 0
+    for _, score in scored_population:
+        total += score
+    print("average score of population:", total / len(scored_population))
+    for _ in range(50):
+        winner = tournament(scored_population, rdm)
+        print("  winner score:", calculate_score(winner, jobs))
 
 
 if __name__ == "__main__":
