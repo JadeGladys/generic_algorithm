@@ -6,9 +6,10 @@ CSV_FILE = "GA_task.csv"
 CSV_SEPARATOR = ","
 POPULATION_SIZE = 50    # how many lists we have at a time
 SEED = 42
-TOURNAMENT_SIZE = 2
+TOURNAMENT_SIZE = 2     # how many parents we compare during a tournament
 # how often two parents are actually mixed (0.8 = 80% of the time)
 CROSSOVER_CHANCE = 0.8
+MUTATION_CHANCE = 0.1   # chance that a child gets one random swap (0.1 = 10%)
 
 
 # =====================================================================
@@ -204,6 +205,27 @@ def make_children(parents, jobs, rdm):
     return children
 
 
+# =====================================================================
+# PART 6  - mutation
+# =====================================================================
+
+def mutate(child, rdm):
+    """With MUTATION_CHANCE, swap the numbers at 2 random positions of the child."""
+    if rdm.random() < MUTATION_CHANCE:
+        first_position, second_position = rdm.sample(range(len(child)), 2)
+
+        # swap: keep the first number aside so it isn't lost
+        first_number = child[first_position]
+        child[first_position] = child[second_position]
+        child[second_position] = first_number
+
+
+def mutate_children(children, rdm):
+    """Give every child its chance to be mutated."""
+    for child in children:
+        mutate(child, rdm)
+
+
 # ---- temporary test ----
 def is_valid(one_list, jobs):
     """Check that every job appears exactly once per step."""
@@ -219,21 +241,21 @@ def main():
     jobs = load_jobs(CSV_FILE)
     population = whole_population(POPULATION_SIZE, jobs, rdm)
 
-    # for step 1
+    ##### for step 1 #####
     print("number of jobs:", len(jobs))
     print("steps per job:", len(jobs[0]))
 
-    # for step 2
+    ##### for step 2 #####
     print("number of lists:", len(population))
     print("length of one list:", len(population[0]))
     print("first 15 numbers of list 1:", population[0][:15])
 
-    # for step 3
+    ##### for step 3 #####
     # the real data: one random list
     print("random list from real data time take for that list:",
           calculate_score(population[0], jobs))
 
-    # for step 4
+    ##### for step 4 #####
     # real data: are winners better than average?
     scored_population = score_population(population, jobs)
     one_list, score = scored_population[0]
@@ -247,7 +269,7 @@ def main():
         winner = tournament(scored_population, rdm)
         print("sample winner score:", calculate_score(winner, jobs))
 
-    # for step 5: real parents from 50 tournaments -> 50 children
+    ##### for step 5: real parents from 50 tournaments -> 50 children #####
     parents = create_parents(scored_population, rdm)
     children = make_children(parents, jobs, rdm)
     print("parents:", len(parents), " children:", len(children))
@@ -268,6 +290,28 @@ def main():
         children_total += calculate_score(child, jobs)
     print("average parent score:", parents_total / len(parents))
     print("average child score:", children_total / len(children))
+
+    ##### for step 6: mutate the children and count how many changed #####
+    children_before = []
+    for child in children:
+        # copies, to compare with afterwards
+        children_before.append(list(child))
+
+    mutate_children(children, rdm)
+
+    changed_count = 0
+    for before, after in zip(children_before, children):
+        if before != after:
+            changed_count += 1
+    print("children changed by mutation:",
+          changed_count, "out of", len(children))
+
+    valid_count = 0
+    for child in children:
+        if is_valid(child, jobs):
+            valid_count += 1
+    print("valid children after mutation:",
+          valid_count, "out of", len(children))
 
 
 if __name__ == "__main__":
