@@ -10,6 +10,7 @@ TOURNAMENT_SIZE = 2     # how many parents we compare during a tournament
 # how often two parents are actually mixed (0.8 = 80% of the time)
 CROSSOVER_CHANCE = 0.8
 MUTATION_CHANCE = 0.1   # chance that a child gets one random swap (0.1 = 10%)
+NUMBER_OF_GENERATIONS = 500   # how many times we repeat: score -> parents -> children
 
 
 # =====================================================================
@@ -84,7 +85,7 @@ def whole_population(population_size, jobs, rdm):
 
 # =====================================================================
 # PART 3 - score the population
-# each member of the population is a pair: (score, list)
+# each member of the population is a pair: (list, score)
 # =====================================================================
 
 def calculate_score(one_list, jobs):
@@ -111,7 +112,7 @@ def calculate_score(one_list, jobs):
 
 
 def score_population(population, jobs):
-    """Return the population as (score, list) pairs."""
+    """Return the population as (list, score) pairs."""
     scored_population = []
     for one_list in population:
         score = calculate_score(one_list, jobs)
@@ -226,6 +227,53 @@ def mutate_children(children, rdm):
         mutate(child, rdm)
 
 
+# =====================================================================
+# PART 7  - the genetic algorithm loop
+# =====================================================================
+
+def find_best(scored_population):
+    """Return the list with the lowest score in the population, and that score."""
+    best_list = None
+    best_score = float("inf")
+
+    for one_list, score in scored_population:
+        if score < best_score:
+            best_list = one_list
+            best_score = score
+
+    return best_list, best_score
+
+
+def genetic_algorithm(jobs, rdm):
+    """Run the GA; return the best list ever, its score, and the best score of each generation."""
+    population = whole_population(POPULATION_SIZE, jobs, rdm)
+
+    best_list_ever = None
+    best_score_ever = float("inf")
+    best_score_per_generation = []      # for the chart in the report
+
+    for _ in range(NUMBER_OF_GENERATIONS):
+        # score every list
+        scored_population = score_population(population, jobs)
+
+        # remember the best of this generation, and the best ever
+        best_list, best_score = find_best(scored_population)
+        best_score_per_generation.append(best_score)
+        if best_score < best_score_ever:
+            best_list_ever = list(best_list)
+            best_score_ever = best_score
+
+        # make the next generation
+        parents = create_parents(scored_population, rdm)
+        children = make_children(parents, jobs, rdm)
+        mutate_children(children, rdm)
+
+        # the children replace the old population
+        population = children
+
+    return best_list_ever, best_score_ever, best_score_per_generation
+
+
 # ---- temporary test ----
 def is_valid(one_list, jobs):
     """Check that every job appears exactly once per step."""
@@ -236,82 +284,20 @@ def is_valid(one_list, jobs):
 
 
 def main():
-    """Temporary test of the parts written so far."""
+    """Run the genetic algorithm once and show the results."""
     rdm = random.Random(SEED)
     jobs = load_jobs(CSV_FILE)
-    population = whole_population(POPULATION_SIZE, jobs, rdm)
 
-    ##### for step 1 #####
-    print("number of jobs:", len(jobs))
-    print("steps per job:", len(jobs[0]))
+    best_list, best_score, best_score_per_generation = genetic_algorithm(
+        jobs, rdm)
 
-    ##### for step 2 #####
-    print("number of lists:", len(population))
-    print("length of one list:", len(population[0]))
-    print("first 15 numbers of list 1:", population[0][:15])
+    # how the best score changed (every 50 generations)
+    for generation in range(0, NUMBER_OF_GENERATIONS, 50):
+        print("generation", generation, "best score:",
+              best_score_per_generation[generation])
 
-    ##### for step 3 #####
-    # the real data: one random list
-    print("random list from real data time take for that list:",
-          calculate_score(population[0], jobs))
-
-    ##### for step 4 #####
-    # real data: are winners better than average?
-    scored_population = score_population(population, jobs)
-    one_list, score = scored_population[0]
-    print("irst 15 numbers and score of scored population:",
-          one_list[:15], "score", score)
-    total = 0
-    for _, score in scored_population:
-        total += score
-    print("average score of population:", total / len(scored_population))
-    for _ in range(5):
-        winner = tournament(scored_population, rdm)
-        print("sample winner score:", calculate_score(winner, jobs))
-
-    ##### for step 5: real parents from 50 tournaments -> 50 children #####
-    parents = create_parents(scored_population, rdm)
-    children = make_children(parents, jobs, rdm)
-    print("parents:", len(parents), " children:", len(children))
-
-    # are all children valid (every job exactly 11 times)?
-    valid_count = 0
-    for child in children:
-        if is_valid(child, jobs):
-            valid_count += 1
-    print("valid children:", valid_count, "out of", len(children))
-
-    # compare average scores
-    parents_total = 0
-    for parent in parents:
-        parents_total += calculate_score(parent, jobs)
-    children_total = 0
-    for child in children:
-        children_total += calculate_score(child, jobs)
-    print("average parent score:", parents_total / len(parents))
-    print("average child score:", children_total / len(children))
-
-    ##### for step 6: mutate the children and count how many changed #####
-    children_before = []
-    for child in children:
-        # copies, to compare with afterwards
-        children_before.append(list(child))
-
-    mutate_children(children, rdm)
-
-    changed_count = 0
-    for before, after in zip(children_before, children):
-        if before != after:
-            changed_count += 1
-    print("children changed by mutation:",
-          changed_count, "out of", len(children))
-
-    valid_count = 0
-    for child in children:
-        if is_valid(child, jobs):
-            valid_count += 1
-    print("valid children after mutation:",
-          valid_count, "out of", len(children))
+    print("best score ever:", best_score)
+    print("first 15 numbers of the best list:", best_list[:15])
 
 
 if __name__ == "__main__":
