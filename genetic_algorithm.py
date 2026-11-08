@@ -1,16 +1,10 @@
 import csv
-import random
 
 # SETTINGS BLOCK
 CSV_FILE = "GA_task.csv"
 CSV_SEPARATOR = ","
 POPULATION_SIZE = 50    # how many lists we have at a time
 SEED = 42
-TOURNAMENT_SIZE = 2     # how many parents we compare during a tournament
-# how often two parents are actually mixed (0.8 = 80% of the time)
-CROSSOVER_CHANCE = 0.8
-MUTATION_CHANCE = 0.1   # chance that a child gets one random swap (0.1 = 10%)
-NUMBER_OF_GENERATIONS = 500   # how many times we repeat: score -> parents -> children
 
 
 # =====================================================================
@@ -125,9 +119,9 @@ def score_population(population, jobs):
 # PART 4 - Tournament
 # =====================================================================
 
-def tournament(scored_population, rdm):
+def tournament(scored_population, tournament_size, rdm):
     """Pick TOURNAMENT_SIZE random members and return the list with the lowest score."""
-    contestants = rdm.sample(scored_population, TOURNAMENT_SIZE)
+    contestants = rdm.sample(scored_population, tournament_size)
 
     # start qith no winner yet and the score being infinity
     best_list = None
@@ -141,11 +135,11 @@ def tournament(scored_population, rdm):
     return best_list
 
 
-def create_parents(scored_population, rdm):
+def create_parents(scored_population, tournament_size, rdm):
     """Run one tournament per member of the population and return all the winners."""
     parents = []
     for _ in range(len(scored_population)):
-        parents.append(tournament(scored_population, rdm))
+        parents.append(tournament(scored_population, tournament_size, rdm))
 
     return parents
 
@@ -177,9 +171,9 @@ def repair(child, jobs):
         child[position] = job_number
 
 
-def crossover(parent_1, parent_2, jobs, rdm):
+def crossover(parent_1, parent_2, crossover_chance, jobs, rdm):
     """Return 2 children: mixed (cut and swap, then repaired) or copies of the parents."""
-    if rdm.random() < CROSSOVER_CHANCE:
+    if rdm.random() < crossover_chance:
         # cut both parents at the same random spot and swap the ends
         cut = rdm.randint(1, len(parent_1) - 1)
         child_1 = parent_1[:cut] + parent_2[cut:]
@@ -193,13 +187,14 @@ def crossover(parent_1, parent_2, jobs, rdm):
     return list(parent_1), list(parent_2)
 
 
-def make_children(parents, jobs, rdm):
+def make_children(parents, jobs, crossover_chance, rdm):
     """Pair the parents up (1st with 2nd, 3rd with 4th, ...) and return all their children."""
     children = []
     for pair_start in range(0, len(parents), 2):
         parent_1 = parents[pair_start]
         parent_2 = parents[pair_start + 1]
-        child_1, child_2 = crossover(parent_1, parent_2, jobs, rdm)
+        child_1, child_2 = crossover(
+            parent_1, parent_2, crossover_chance, jobs, rdm)
         children.append(child_1)
         children.append(child_2)
 
@@ -210,9 +205,9 @@ def make_children(parents, jobs, rdm):
 # PART 6  - mutation
 # =====================================================================
 
-def mutate(child, rdm):
+def mutate(child, mutation_chance,  rdm):
     """With MUTATION_CHANCE, swap the numbers at 2 random positions of the child."""
-    if rdm.random() < MUTATION_CHANCE:
+    if rdm.random() < mutation_chance:
         first_position, second_position = rdm.sample(range(len(child)), 2)
 
         # swap: keep the first number aside so it isn't lost
@@ -221,10 +216,10 @@ def mutate(child, rdm):
         child[second_position] = first_number
 
 
-def mutate_children(children, rdm):
+def mutate_children(children, mutation_chance, rdm):
     """Give every child its chance to be mutated."""
     for child in children:
-        mutate(child, rdm)
+        mutate(child, mutation_chance, rdm)
 
 
 # =====================================================================
@@ -244,15 +239,15 @@ def find_best(scored_population):
     return best_list, best_score
 
 
-def genetic_algorithm(jobs, rdm):
-    """Run the GA; return the best list ever, its score, and the best score of each generation."""
-    population = whole_population(POPULATION_SIZE, jobs, rdm)
+def genetic_algorithm(jobs, settings, rdm):
+    """use the given settings return the best list ever, its score, and best score per gen."""
+    population = whole_population(settings["population_size"], jobs, rdm)
 
     best_list_ever = None
     best_score_ever = float("inf")
     best_score_per_generation = []      # for the chart in the report
 
-    for _ in range(NUMBER_OF_GENERATIONS):
+    for _ in range(settings["generations"]):
         # score every list
         scored_population = score_population(population, jobs)
 
@@ -264,41 +259,13 @@ def genetic_algorithm(jobs, rdm):
             best_score_ever = best_score
 
         # make the next generation
-        parents = create_parents(scored_population, rdm)
-        children = make_children(parents, jobs, rdm)
-        mutate_children(children, rdm)
+        parents = create_parents(
+            scored_population, settings["tournament_size"], rdm)
+        children = make_children(
+            parents, jobs, settings["crossover_chance"], rdm)
+        mutate_children(children, settings["mutation_chance"], rdm)
 
         # the children replace the old population
         population = children
 
     return best_list_ever, best_score_ever, best_score_per_generation
-
-
-# ---- temporary test ----
-def is_valid(one_list, jobs):
-    """Check that every job appears exactly once per step."""
-    for job_position, job_steps in enumerate(jobs):
-        if one_list.count(job_position) != len(job_steps):
-            return False
-    return True
-
-
-def main():
-    """Run the genetic algorithm once and show the results."""
-    rdm = random.Random(SEED)
-    jobs = load_jobs(CSV_FILE)
-
-    best_list, best_score, best_score_per_generation = genetic_algorithm(
-        jobs, rdm)
-
-    # how the best score changed (every 50 generations)
-    for generation in range(0, NUMBER_OF_GENERATIONS, 50):
-        print("generation", generation, "best score:",
-              best_score_per_generation[generation])
-
-    print("best score ever:", best_score)
-    print("first 15 numbers of the best list:", best_list[:15])
-
-
-if __name__ == "__main__":
-    main()
