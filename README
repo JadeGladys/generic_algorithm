@@ -3,8 +3,8 @@
 Implement a genetic algorithm to schedule jobs using available resources, so that the time to finish all tasks is minimal. Test your algorithm using different parameters and analyse the results. The data is in a separate excel files – each task has the resource (R) and time needed using this resource (T) in a specific order. You cannot change the order of operations within the task.
 
     How generic_algorith file is organised:
-    - PART 1  - read the data 
-    - PART 2  - create random lists 
+    - PART 1  - read the data
+    - PART 2  - create random lists
     - PART 3  - score a list (makespan)
     - PART 4  - tournament
     - PART 5  - crossover + repair
@@ -13,10 +13,20 @@ Implement a genetic algorithm to schedule jobs using available resources, so tha
     - PART 8  - testing different settings
 
 
-# Exercise 1 – PSO
+# Exercise 2 – PSO
 
 Implement the Particle Swarm Optimisation algorithm to find the minimum of the following function:
 
 f(x,y) = (1.5 – x -xy)^2 + (2.25 – x + xy^2)^2 + (2.625 – x + xy^3)^2 for x,y in range <-4.5, 4.5>
 
 Test your algorithm using different parameters and analyse the results.
+
+Exercise 2 - Particle Swarm Optimisation: the algorithm itself.
+Finds the (x, y) in [-4.5, 4.5] where f(x, y) is smallest.
+Run pso_experiments.py to use it.
+
+    How pso_algorithm file is organised:
+    - PART 1  - the function f(x, y)
+    - PART 2  - create the swarm
+    - PART 3  - move one particle
+    - PART 4  - the PSO loop
