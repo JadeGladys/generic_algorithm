@@ -1,10 +1,9 @@
 import csv
+import os
 
 # SETTINGS BLOCK
-CSV_FILE = "GA_task.csv"
+CSV_FILE = os.path.join(os.path.dirname(__file__), "GA_task.csv")
 CSV_SEPARATOR = ","
-POPULATION_SIZE = 50    # how many lists we have at a time
-SEED = 42
 
 
 # =====================================================================
@@ -31,7 +30,7 @@ def load_jobs(file_name):
 
     jobs = []
     machine_column = 0
-    for job_columns in range(jobs_size):
+    for _ in range(jobs_size):
         time_column = machine_column + 1
 
         # go down 2 columns of each row to collect all the steps for a job
@@ -59,7 +58,7 @@ def random_list(jobs, rdm):
     # create one list that is in order listing all jobs 11 times
     for job_position, job_steps in enumerate(jobs):
         number_of_steps = len(job_steps)
-        for step in range(number_of_steps):
+        for _ in range(number_of_steps):
             one_list.append(job_position)
 
     # mix the list into a random order
@@ -119,27 +118,23 @@ def score_population(population, jobs):
 # PART 4 - Tournament
 # =====================================================================
 
-def tournament(scored_population, tournament_size, rdm):
-    """Pick TOURNAMENT_SIZE random members and return the list with the lowest score."""
-    contestants = rdm.sample(scored_population, tournament_size)
-
-    # start qith no winner yet and the score being infinity
-    best_list = None
-    best_score = float("inf")
-
-    for one_list, score in contestants:
-        if score < best_score:
-            best_list = one_list
-            best_score = score
-
-    return best_list
-
-
 def create_parents(scored_population, tournament_size, rdm):
-    """Run one tournament per member of the population and return all the winners."""
+    """Pick TOURNAMENT_SIZE random members and return the list with the lowest score.
+    the returned list is equal to the size of the population"""
     parents = []
     for _ in range(len(scored_population)):
-        parents.append(tournament(scored_population, tournament_size, rdm))
+        contestants = rdm.sample(scored_population, tournament_size)
+
+        # start with no winner yet and the score being infinity
+        best_list = None
+        best_score = float("inf")
+
+        for one_list, score in contestants:
+            if score < best_score:
+                best_list = one_list
+                best_score = score
+
+        parents.append(best_list)
 
     return parents
 
@@ -205,21 +200,16 @@ def make_children(parents, jobs, crossover_chance, rdm):
 # PART 6  - mutation
 # =====================================================================
 
-def mutate(child, mutation_chance,  rdm):
-    """With MUTATION_CHANCE, swap the numbers at 2 random positions of the child."""
-    if rdm.random() < mutation_chance:
-        first_position, second_position = rdm.sample(range(len(child)), 2)
-
-        # swap: keep the first number aside so it isn't lost
-        first_number = child[first_position]
-        child[first_position] = child[second_position]
-        child[second_position] = first_number
-
-
 def mutate_children(children, mutation_chance, rdm):
-    """Give every child its chance to be mutated."""
+    """for each child With mutation_chance, swap the numbers at 2 random positions of the child."""
     for child in children:
-        mutate(child, mutation_chance, rdm)
+        if rdm.random() < mutation_chance:
+            first_position, second_position = rdm.sample(range(len(child)), 2)
+
+            # swap: keep the first number aside so it isn't lost
+            first_number = child[first_position]
+            child[first_position] = child[second_position]
+            child[second_position] = first_number
 
 
 # =====================================================================
